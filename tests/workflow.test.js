@@ -4,7 +4,16 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_EDGES, DEFAULT_NODES, executeWorkflow, topologicalOrder } from '../server/workflow.js';
+import { getBearerToken } from '../server/auth.js';
 import { WorkflowStore } from '../server/storage.js';
+
+test('bearer token parsing rejects malformed and oversized headers', () => {
+  assert.equal(getBearerToken(['Bearer', 'token-value'].join(' ')), 'token-value');
+  assert.equal(getBearerToken(['Bearer', ' '.repeat(1000), 'token-value'].join('')), 'token-value');
+  assert.equal(getBearerToken('Basic token-value'), null);
+  assert.equal(getBearerToken(['Bearer', 'token', 'with', 'spaces'].join(' ')), null);
+  assert.equal(getBearerToken(['Bearer', 'x'.repeat(5000)].join(' ')), null);
+});
 
 test('topological order follows the workflow edges', () => {
   const nodes = [{ id: 'last' }, { id: 'first' }, { id: 'middle' }];

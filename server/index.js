@@ -1,8 +1,9 @@
-import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import {
@@ -11,7 +12,7 @@ import {
   removeImageBackground,
   upscaleImage,
 } from './ai.js';
-import { authenticate } from './auth.js';
+import { authenticate, getBearerToken } from './auth.js';
 import { DEFAULT_EDGES, DEFAULT_NODES, executeWorkflow, suggestNextNode, topologicalOrder } from './workflow.js';
 import { WorkflowStore } from './storage.js';
 
@@ -25,6 +26,7 @@ const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const PUBLIC = resolve(ROOT, 'public');
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const DEFAULT_MODEL_PROMPT = 'Create a polished commercial product photograph with soft studio lighting.';
+const scryptAsync = promisify(scrypt);
 
 function respond(response, status, value, headers = {}) {
   response.writeHead(status, {
@@ -96,8 +98,9 @@ async function loadUser(request, store) {
   return null;
 }
 
-function hashKey(key) {
-  return createHash('sha256').update(key).digest('hex');
+async function hashKey(key) {
+  const salt = process.env.API_KEY_HASH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'local-development-only';
+  return (await scryptAsync(key, salt, 64, { N: 4096, r: 8, p: 1, maxmem: 16 * 1024 * 1024 })).toString('hex');
 }
 
 async function getReaSuggestion(nodes) {
@@ -439,7 +442,7 @@ export function createAppServer({ store = new WorkflowStore() } = {}) {
         const apiKey = randomBytes(32).toString('hex');
         await store.updateWorkflow(workflow.id, user.id, {
           deployed: true,
-          api_key_hash: hashKey(apiKey),
+          api_key_hash: await hashKey(apiKey),
         });
         const baseUrl = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
         respond(response, 200, {
@@ -454,14 +457,14 @@ export function createAppServer({ store = new WorkflowStore() } = {}) {
         const body = await readJson(request);
         let workflow;
         let ownerId;
-        const key = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+        const key = getBearerToken(request.headers.authorization);
         const authConfigured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
         const user = authConfigured ? await loadUser(request, store) : (key ? null : await loadUser(request, store));
         if (user) {
           workflow = await store.getWorkflow(workflowMatch[1], user.id);
           ownerId = user.id;
         } else {
-          if (key) workflow = await store.getDeployedWorkflow(workflowMatch[1], hashKey(key));
+          if (key) workflow = await store.getDeployedWorkflow(workflowMatch[1], await hashKey(key));
           ownerId = workflow?.user_id;
         }
         if (!workflow) return respond(response, 401, { error: 'Workflow not found or API key invalid' });

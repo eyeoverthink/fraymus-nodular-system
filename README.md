@@ -36,7 +36,7 @@ For production, configure Supabase Auth and Postgres:
 
 1. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql) in its SQL editor.
 2. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
-3. Keep the service-role key server-side only. The API validates user access tokens with Supabase Auth, associates workflows and runs with their owner, and uses the service key only for server-side database access.
+3. Keep the service-role key server-side only. Set a stable `API_KEY_HASH_SECRET` for deployed API-key verification. The API validates user access tokens with Supabase Auth, associates workflows and runs with their owner, and uses the service key only for server-side database access.
 
 Without those three values the app uses the durable SQLite development store and does not enforce sign-in. Do not expose that local mode to the public internet.
 
