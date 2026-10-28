@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_EDGES, DEFAULT_NODES, executeWorkflow, topologicalOrder } from '../server/workflow.js';
 import { getBearerToken } from '../server/auth.js';
-import { contentSecurityPolicy } from '../server/security.js';
+import { configuredOrigins, contentSecurityPolicy, isSameOriginRequest } from '../server/security.js';
 import { WorkflowStore } from '../server/storage.js';
 
 test('Content Security Policy permits only the configured Supabase auth origin', () => {
@@ -13,6 +13,16 @@ test('Content Security Policy permits only the configured Supabase auth origin',
   assert.match(contentSecurityPolicy('http://localhost:54321'), /connect-src 'self' http:\/\/localhost:54321$/);
   assert.match(contentSecurityPolicy('http://example.com'), /connect-src 'self'$/);
   assert.match(contentSecurityPolicy('https://trusted.example; connect-src *'), /connect-src 'self'$/);
+  assert.match(contentSecurityPolicy('', 'https://api.example.test'), /connect-src 'self' https:\/\/api\.example\.test$/);
+});
+
+test('external API origins are parsed and same-origin requests are recognized', () => {
+  assert.deepEqual(
+    [...configuredOrigins('https://studio.example, http://localhost:4173,https://evil.example/path')],
+    ['https://studio.example', 'http://localhost:4173'],
+  );
+  assert.equal(isSameOriginRequest('https://studio.example', 'studio.example'), true);
+  assert.equal(isSameOriginRequest('https://attacker.example', 'studio.example'), false);
 });
 
 test('bearer token parsing rejects malformed and oversized headers', () => {

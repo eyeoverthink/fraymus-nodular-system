@@ -13,7 +13,7 @@ import {
   upscaleImage,
 } from './ai.js';
 import { authenticate, getBearerToken } from './auth.js';
-import { contentSecurityPolicy } from './security.js';
+import { configuredOrigins, contentSecurityPolicy, isSameOriginRequest } from './security.js';
 import { DEFAULT_EDGES, DEFAULT_NODES, executeWorkflow, suggestNextNode, topologicalOrder } from './workflow.js';
 import { WorkflowStore } from './storage.js';
 
@@ -268,7 +268,10 @@ async function serveStatic(pathname, response) {
     response.writeHead(200, {
       'Content-Type': contentTypes[extname(file)] || 'application/octet-stream',
       'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': contentSecurityPolicy(process.env.SUPABASE_URL),
+      'Content-Security-Policy': contentSecurityPolicy(
+        process.env.SUPABASE_URL,
+        process.env.PUBLIC_API_URL || process.env.PUBLIC_URL,
+      ),
     });
     createReadStream(file).pipe(response);
   } catch {
@@ -281,6 +284,27 @@ export function createAppServer({ store = new WorkflowStore() } = {}) {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     const pathname = url.pathname;
     try {
+      const requestOrigin = request.headers.origin;
+      if (requestOrigin && pathname.startsWith('/api/')) {
+        const allowed = configuredOrigins(process.env.ALLOWED_ORIGINS);
+        if (!allowed.has(requestOrigin) && !isSameOriginRequest(requestOrigin, request.headers.host)) {
+          respond(response, 403, { error: 'Origin is not allowed' });
+          return;
+        }
+        response.setHeader('Access-Control-Allow-Origin', requestOrigin);
+        response.setHeader('Vary', 'Origin');
+        response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+        response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+        response.setHeader('Access-Control-Expose-Headers', 'X-Upscale-From, X-Upscale-To');
+        response.setHeader('Access-Control-Max-Age', '600');
+      }
+
+      if (request.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+        response.writeHead(204);
+        response.end();
+        return;
+      }
+
       if (request.method === 'GET' && pathname === '/api/health') {
         respond(response, 200, { ok: true, persistence: store.remote ? 'supabase' : 'sqlite' });
         return;
@@ -291,6 +315,7 @@ export function createAppServer({ store = new WorkflowStore() } = {}) {
           authEnabled: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
           supabaseUrl: process.env.SUPABASE_URL || null,
           supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
+          apiBaseUrl: process.env.PUBLIC_API_URL || process.env.PUBLIC_URL || '',
         });
         return;
       }

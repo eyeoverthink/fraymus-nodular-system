@@ -20,7 +20,14 @@ async function unusedPort() {
 const directory = await mkdtemp(join(tmpdir(), 'fraymus-workflow-'));
 const port = await unusedPort();
 const baseUrl = `http://127.0.0.1:${port}`;
-const env = { ...process.env, PORT: String(port), SQLITE_PATH: join(directory, 'workflow.sqlite'), MOCK_AI: '1' };
+const env = {
+  ...process.env,
+  PORT: String(port),
+  SQLITE_PATH: join(directory, 'workflow.sqlite'),
+  MOCK_AI: '1',
+  ALLOWED_ORIGINS: 'https://studio.base44.app',
+  PUBLIC_API_URL: 'https://api.fraymus.test',
+};
 for (const name of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'GROQ_API_KEY', 'HF_TOKEN', 'REPLICATE_API_TOKEN']) {
   delete env[name];
 }
@@ -51,6 +58,26 @@ try {
   await waitForServer();
   const health = await fetch(`${baseUrl}/api/health`).then((response) => response.json());
   assert.equal(health.persistence, 'sqlite');
+  const configResponse = await fetch(`${baseUrl}/api/config`, {
+    headers: { Origin: 'https://studio.base44.app' },
+  });
+  const config = await configResponse.json();
+  assert.equal(config.apiBaseUrl, 'https://api.fraymus.test');
+  assert.equal(configResponse.headers.get('access-control-allow-origin'), 'https://studio.base44.app');
+  const preflight = await fetch(`${baseUrl}/api/workflows`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://studio.base44.app',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type',
+    },
+  });
+  assert.equal(preflight.status, 204);
+  assert.match(preflight.headers.get('access-control-allow-headers'), /authorization/i);
+  const deniedOrigin = await fetch(`${baseUrl}/api/config`, {
+    headers: { Origin: 'https://untrusted.example' },
+  });
+  assert.equal(deniedOrigin.status, 403);
 
   const created = await fetch(`${baseUrl}/api/workflows`, {
     method: 'POST',

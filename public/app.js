@@ -52,7 +52,23 @@ async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (state.token) headers.Authorization = 'Bearer ' + state.token;
   if (options.body && !(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
-  const response = await fetch(path, { ...options, headers });
+  const configuredUrl = document.querySelector('meta[name="workflow-api-url"]')?.content.trim()
+    || state.config?.apiBaseUrl
+    || '';
+  let baseUrl = '';
+  if (configuredUrl) {
+    const parsedUrl = new URL(configuredUrl, window.location.origin);
+    const localHttp = parsedUrl.protocol === 'http:' &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(parsedUrl.hostname);
+    if (parsedUrl.protocol !== 'https:' && !localHttp) {
+      throw new Error('Workflow API URL must use HTTPS');
+    }
+    if (parsedUrl.username || parsedUrl.password || parsedUrl.pathname !== '/' || parsedUrl.search || parsedUrl.hash) {
+      throw new Error('Workflow API URL must be an origin without credentials or a path');
+    }
+    baseUrl = parsedUrl.origin;
+  }
+  const response = await fetch(`${baseUrl}${path}`, { ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
   return body;
