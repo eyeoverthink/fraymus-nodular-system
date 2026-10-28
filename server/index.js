@@ -13,6 +13,7 @@ import {
   upscaleImage,
 } from './ai.js';
 import { authenticate, getBearerToken } from './auth.js';
+import { contentSecurityPolicy } from './security.js';
 import { DEFAULT_EDGES, DEFAULT_NODES, executeWorkflow, suggestNextNode, topologicalOrder } from './workflow.js';
 import { WorkflowStore } from './storage.js';
 
@@ -267,7 +268,7 @@ async function serveStatic(pathname, response) {
     response.writeHead(200, {
       'Content-Type': contentTypes[extname(file)] || 'application/octet-stream',
       'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'",
+      'Content-Security-Policy': contentSecurityPolicy(process.env.SUPABASE_URL),
     });
     createReadStream(file).pipe(response);
   } catch {

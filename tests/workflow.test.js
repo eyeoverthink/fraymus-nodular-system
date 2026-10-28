@@ -5,7 +5,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_EDGES, DEFAULT_NODES, executeWorkflow, topologicalOrder } from '../server/workflow.js';
 import { getBearerToken } from '../server/auth.js';
+import { contentSecurityPolicy } from '../server/security.js';
 import { WorkflowStore } from '../server/storage.js';
+
+test('Content Security Policy permits only the configured Supabase auth origin', () => {
+  assert.match(contentSecurityPolicy('https://project.supabase.co'), /connect-src 'self' https:\/\/project\.supabase\.co$/);
+  assert.match(contentSecurityPolicy('http://localhost:54321'), /connect-src 'self' http:\/\/localhost:54321$/);
+  assert.match(contentSecurityPolicy('http://example.com'), /connect-src 'self'$/);
+  assert.match(contentSecurityPolicy('https://trusted.example; connect-src *'), /connect-src 'self'$/);
+});
 
 test('bearer token parsing rejects malformed and oversized headers', () => {
   assert.equal(getBearerToken(['Bearer', 'token-value'].join(' ')), 'token-value');
