@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111019">
+    <title>Fraymus Workflow Studio</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">f</span><div><strong>fraymus</strong><small>WORKFLOW STUDIO</small></div></div>
+        <div class="sidebar-heading">WORKSPACE <button id="newWorkflow" class="icon-button" title="New workflow">+</button></div>
+        <div id="workflowList" class="workflow-list"></div>
+        <div class="sidebar-bottom">
+          <div class="stack-label">FREE STACK</div>
+          <div class="stack-item"><span class="dot purple"></span>Llama 3.3 · Groq</div>
+          <div class="stack-item"><span class="dot white"></span>FLUX.1 Schnell</div>
+          <div class="stack-item"><span class="dot indigo"></span>BiRefNet · local</div>
+          <div class="stack-item"><span class="dot green"></span>Real-ESRGAN / Sharp</div>
+          <button id="accountButton" class="account-button"><span class="avatar">F</span><span id="accountLabel">Local workspace</span><span>···</span></button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div><div class="breadcrumbs">Workflows <span>/</span> <strong id="workflowName">Product Image Chain</strong></div><div class="saved-state" id="savedState">All changes saved locally</div></div>
+          <div class="top-actions">
+            <button id="saveButton" class="button secondary">Save workflow</button>
+            <button id="deployButton" class="button secondary">↗ Deploy API</button>
+            <button id="billingButton" class="button secondary" hidden>Billing</button>
+            <button id="runButton" class="button primary"><span class="play">▶</span> Run workflow</button>
+          </div>
+        </header>
+
+        <section class="canvas-section">
+          <div class="canvas-heading">
+            <div><h1>Workflow canvas</h1><p>Connect free AI models into a product you can deploy.</p></div>
+            <div class="canvas-tools"><button id="addNodeButton" class="button secondary">＋ Add node</button><button id="fitButton" class="button secondary">Fit view</button></div>
+          </div>
+          <div id="canvas" class="canvas">
+            <div class="canvas-grid"></div>
+            <div id="edgeLayer" class="edge-layer"></div>
+            <div id="nodesLayer" class="nodes-layer"></div>
+            <div id="dropOverlay" class="drop-overlay">Drop an image to use it as remover input</div>
+            <div class="canvas-status"><span class="live-dot"></span> WORKFLOW READY <span id="nodeCount">5 NODES</span></div>
+          </div>
+          <div class="toolbar">
+            <button id="uploadButton" class="button secondary">▧ Upload image</button>
+            <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            <span id="uploadName" class="upload-name">Drop an image here to send it to the remover</span>
+            <button id="clearUpload" class="text-button" hidden>Clear</button>
+            <div class="rea-badge"><span>✦</span><div><strong id="reaTitle">REA is ready</strong><small id="reaReason">Add nodes to get a high-leverage suggestion</small></div></div>
+          </div>
+        </section>
+
+        <section class="bottom-grid">
+          <div class="panel run-panel">
+            <div class="panel-heading"><div><h2>Run details</h2><p id="runStatus">Ready when you are</p></div><span id="runBadge" class="status-badge">IDLE</span></div>
+            <label for="prompt">Image prompt</label>
+            <textarea id="prompt" rows="2" placeholder="A minimalist glass perfume bottle on warm stone, editorial studio lighting...">A sculptural glass perfume bottle on warm travertine, soft editorial studio light, premium product photography</textarea>
+            <div class="log-list" id="logList"><div class="log-item"><span class="log-dot done"></span><span>Workflow initialized</span><time>Ready</time></div></div>
+          </div>
+          <div class="panel preview-panel">
+            <div class="panel-heading"><div><h2>Live preview</h2><p>Final image and HTML output</p></div><select id="comparisonMode" aria-label="Image comparison" disabled><option value="final">Final output</option><option value="remover">Before / after remover</option><option value="upscaler">Before / after upscaler</option></select></div>
+            <div id="preview" class="preview-content"><div class="preview-placeholder"><span>✦</span><strong>Your output appears here</strong><small>Run the workflow to see the result</small></div></div>
+            <div id="deployCode" class="deploy-code" hidden><div class="deploy-code-head"><strong>Workflow API is live</strong><button id="copyCurl" class="text-button">Copy cURL</button></div><pre id="curlCode"></pre><small>Keep this API key private. Deploying again rotates the key.</small></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="authDialog" class="auth-dialog">
+      <form method="dialog" class="dialog-close"><button aria-label="Close">×</button></form>
+      <div class="auth-content">
+        <span class="brand-mark">f</span><h2 id="authTitle">Sign in to Fraymus</h2>
+        <p>Save and run your workflows across sessions.</p>
+        <form id="authForm">
+          <label>Email<input id="authEmail" type="email" autocomplete="email" required></label>
+          <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="8" required></label>
+          <button id="authSubmit" class="button primary" type="submit">Sign in</button>
+        </form>
+        <button id="toggleAuthMode" class="text-button">Create an account instead</button>
+        <small id="authMessage"></small>
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
